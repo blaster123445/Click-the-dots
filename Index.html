@@ -92,10 +92,56 @@
       transform: scale(1.05);
     }
 
-    /* Celebration animation - Subtle Sparkle & Shine */
+    /* Menu button styling - positioned top right */
+    #menu-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: brown;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      z-index: 1002;
+    }
+
+    #menu-dropdown {
+      position: absolute;
+      top: 45px;
+      right: 10px;
+      background-color: #333;
+      border-radius: 5px;
+      display: none;
+      flex-direction: column;
+      min-width: 140px;
+      z-index: 1001;
+    }
+
+    #menu-dropdown button {
+      background: none;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 16px;
+      border-bottom: 1px solid #555;
+    }
+
+    #menu-dropdown button:last-child {
+      border-bottom: none;
+    }
+
+    #menu-dropdown button:hover {
+      background-color: #555;
+    }
+
+    /* Celebration animation (Original style) */
     #celebration {
       position: absolute;
-      top: 10px;              /* inside game area near top */
+      top: 10px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
@@ -109,49 +155,18 @@
       font-weight: 800;
       text-align: center;
       overflow: hidden;
-      animation: sparkleFade 3s forwards;
       user-select: none;
       box-shadow: 0 0 20px #ffd700;
       max-width: 90%;
       white-space: nowrap;
-      position: absolute;
-    }
-
-    #celebration::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.7) 50%, transparent 70%);
-      transform: rotate(25deg);
-      animation: shine 3s forwards;
-      pointer-events: none;
+      animation: sparkleFade 3s forwards;
     }
 
     @keyframes sparkleFade {
-      0% {
-        opacity: 0;
-      }
-      20% {
-        opacity: 1;
-      }
-      80% {
-        opacity: 1;
-      }
-      100% {
-        opacity: 0;
-      }
-    }
-
-    @keyframes shine {
-      0% {
-        transform: translateX(-100%) rotate(25deg);
-      }
-      100% {
-        transform: translateX(100%) rotate(25deg);
-      }
+      0% {opacity: 0;}
+      20% {opacity: 1;}
+      80% {opacity: 1;}
+      100% {opacity: 0;}
     }
   </style>
 </head>
@@ -162,13 +177,19 @@
   </div>
 
   <div id="game-area">
+    <button id="menu-button">Menu ▼</button>
+    <div id="menu-dropdown">
+      <button id="retry-menu-button">Retry Level</button>
+      <button id="home-menu-button">Go to Home Page</button>
+      <button id="level1-menu-button">Go to Level 1</button>
+    </div>
+
     <div id="level-board">Level: 1</div>
     <div id="goal-board">Goal: 5 points</div>
     <div id="score-board">Score: 0</div>
     <button id="next-level-button">Next Level</button>
     <button id="retry-button" style="display: none;">Retry</button>
 
-    <!-- Celebration Message -->
     <div id="celebration">Level Complete!</div>
   </div>
 
@@ -190,15 +211,36 @@
     const gameStartSound = document.getElementById('game-start-sound');
     const celebration = document.getElementById('celebration');
 
+    const menuButton = document.getElementById('menu-button');
+    const menuDropdown = document.getElementById('menu-dropdown');
+    const retryMenuButton = document.getElementById('retry-menu-button');
+    const homeMenuButton = document.getElementById('home-menu-button');
+    const level1MenuButton = document.getElementById('level1-menu-button');
+
     let score = 0;
     let currentLevel = 1;
-    let timeLimit = 7;
     const goals = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
     let gameInProgress = false;
     let dotInterval;
     let dotsCreated = 0;
     let maxDots = 0;
     let levelTimeout;
+
+    // Show/hide menu dropdown
+    menuButton.addEventListener('click', () => {
+      if (menuDropdown.style.display === 'flex') {
+        menuDropdown.style.display = 'none';
+      } else {
+        menuDropdown.style.display = 'flex';
+      }
+    });
+
+    // Close menu if clicking outside
+    document.addEventListener('click', (e) => {
+      if (!menuButton.contains(e.target) && !menuDropdown.contains(e.target)) {
+        menuDropdown.style.display = 'none';
+      }
+    });
 
     function createDot() {
       if (!gameInProgress || dotsCreated >= maxDots) return;
@@ -229,7 +271,7 @@
         if (gameArea.contains(dot)) {
           gameArea.removeChild(dot);
         }
-      }, 1000); // 1 second visibility
+      }, 1000); // dots last for 1 second
 
       dotsCreated++;
     }
@@ -237,11 +279,9 @@
     function showCelebration() {
       celebration.style.display = 'block';
       celebration.style.animation = 'none';
-      // Force reflow to restart animation
-      void celebration.offsetWidth;
+      void celebration.offsetWidth; // restart animation
       celebration.style.animation = 'sparkleFade 3s forwards';
 
-      // Hide after animation completes
       setTimeout(() => {
         celebration.style.display = 'none';
       }, 3000);
@@ -265,72 +305,80 @@
       }
     }
 
-    function startLevel() {
+    function startLevel(level) {
       score = 0;
+      dotsCreated = 0;
+      currentLevel = level;
+      maxDots = goals[level - 1];
+
       scoreBoard.textContent = `Score: ${score}`;
       levelBoard.textContent = `Level: ${currentLevel}`;
-      goalBoard.textContent = `Goal: ${goals[currentLevel - 1]} points`;
+      goalBoard.textContent = `Goal: ${maxDots} points`;
+
       nextLevelButton.style.display = 'none';
       retryButton.style.display = 'none';
-      celebration.style.display = 'none';
-      document.querySelectorAll('.dot').forEach(dot => dot.remove());
 
-      dotsCreated = 0;
-      maxDots = goals[currentLevel - 1] + 2;
       gameInProgress = true;
 
-      dotInterval = setInterval(() => {
-        createDot();
-        if (dotsCreated >= maxDots) {
-          clearInterval(dotInterval);
-        }
-      }, 500);
+      // Clear old dots if any
+      document.querySelectorAll('.dot').forEach(dot => dot.remove());
+
+      // Play start sound
+      gameStartSound.play();
+
+      // Start generating dots every 800ms (roughly)
+      dotInterval = setInterval(createDot, 800);
+
+      // Calculate time limit: goal * 750 ms + 1500 ms
+      const timeLimitMs = maxDots * 750 + 1500;
 
       levelTimeout = setTimeout(() => {
-        if (score >= goals[currentLevel - 1]) {
+        if (score >= maxDots) {
           endLevel(true);
         } else {
           endLevel(false);
         }
-      }, timeLimit * 1000);
+      }, timeLimitMs);
     }
 
-    function startGame() {
-      gameStartSound.play();
+    startButton.addEventListener('click', () => {
       homePage.style.display = 'none';
       gameArea.style.display = 'flex';
-      currentLevel = 1;
-      timeLimit = 7;
-      startLevel();
-    }
+      startLevel(1);
+    });
 
-    function nextLevel() {
-      currentLevel++;
-      timeLimit += 2;
-
-      if (currentLevel <= goals.length) {
-        startLevel();
+    nextLevelButton.addEventListener('click', () => {
+      if (currentLevel < goals.length) {
+        startLevel(currentLevel + 1);
       } else {
-        alert(`Congratulations! You've completed all levels!`);
-        resetGame();
+        alert("You've completed all levels! Congratulations!");
+        gameArea.style.display = 'none';
+        homePage.style.display = 'flex';
       }
-    }
+    });
 
-    function retryLevel() {
-      startLevel();
-    }
+    retryButton.addEventListener('click', () => {
+      startLevel(currentLevel);
+    });
 
-    function resetGame() {
-      homePage.style.display = 'flex';
+    retryMenuButton.addEventListener('click', () => {
+      menuDropdown.style.display = 'none';
+      startLevel(currentLevel);
+    });
+
+    homeMenuButton.addEventListener('click', () => {
+      menuDropdown.style.display = 'none';
       gameArea.style.display = 'none';
-      gameInProgress = false;
-      celebration.style.display = 'none';
-    }
+      homePage.style.display = 'flex';
+      clearInterval(dotInterval);
+      clearTimeout(levelTimeout);
+      document.querySelectorAll('.dot').forEach(dot => dot.remove());
+    });
 
-    startButton.addEventListener('click', startGame);
-    nextLevelButton.addEventListener('click', nextLevel);
-    retryButton.addEventListener('click', retryLevel);
+    level1MenuButton.addEventListener('click', () => {
+      menuDropdown.style.display = 'none';
+      startLevel(1);
+    });
   </script>
 </body>
 </html>
-
