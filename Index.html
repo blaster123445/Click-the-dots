@@ -7,15 +7,15 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
       margin: 0;
       overflow: hidden;
       background-color: white;
       color: black;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
     #home-page, #game-area {
@@ -33,15 +33,18 @@
     }
 
     #game-area {
-      position: relative;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       width: 80vw;
       height: 80vh;
       background-color: black;
       border: 2px solid white;
-      overflow: hidden;
-      display: none;
       border-radius: 10px;
       color: white;
+      display: none;
+      overflow: hidden;
     }
 
     .dot {
@@ -139,9 +142,68 @@
       0% { transform: translateX(-100%) rotate(25deg); }
       100% { transform: translateX(100%) rotate(25deg); }
     }
+
+    #menu-button {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      width: 35px;
+      height: 30px;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      z-index: 2000;
+    }
+
+    .bar {
+      height: 5px;
+      width: 100%;
+      background-color: brown;
+      border-radius: 2px;
+    }
+
+    #menu-options {
+      position: fixed;
+      top: 60px;
+      right: 15px;
+      background-color: white;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      z-index: 2001;
+    }
+
+    #menu-options button {
+      margin: 5px 0;
+      padding: 8px;
+      font-size: 16px;
+      border: none;
+      background-color: #f0f0f0;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    #menu-options button:hover {
+      background-color: #ddd;
+    }
   </style>
 </head>
 <body>
+  <div id="menu-button">
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+  </div>
+
+  <div id="menu-options">
+    <button onclick="retryLevel()">Retry Level</button>
+    <button onclick="resetGame()">Go to Home Page</button>
+    <button onclick="goToLevel1()">Go to Level 1</button>
+  </div>
+
   <div id="home-page">
     <h1>Welcome to Click the Dots!</h1>
     <button id="start-button">Start Game</button>
@@ -160,7 +222,6 @@
   <audio id="level-complete-sound" src="https://www.soundjay.com/button/beep-10.wav"></audio>
   <audio id="game-start-sound" src="https://www.soundjay.com/button/button-4.wav"></audio>
 
-  <!-- JS placed here at end of body -->
   <script>
     const startButton = document.getElementById('start-button');
     const nextLevelButton = document.getElementById('next-level-button');
@@ -174,10 +235,11 @@
     const levelCompleteSound = document.getElementById('level-complete-sound');
     const gameStartSound = document.getElementById('game-start-sound');
     const celebration = document.getElementById('celebration');
+    const menuButton = document.getElementById('menu-button');
+    const menuOptions = document.getElementById('menu-options');
 
     let score = 0;
     let currentLevel = 1;
-    let timeLimit = 7;
     const goals = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
     let gameInProgress = false;
     let dotInterval;
@@ -185,8 +247,9 @@
     let maxDots = 0;
     let levelTimeout;
 
-    function createDot() {
+    function createDot(lifetime = 1000) {
       if (!gameInProgress || dotsCreated >= maxDots) return;
+
       const dot = document.createElement('div');
       dot.classList.add('dot');
       dot.style.top = `${Math.random() * (gameArea.clientHeight - 40)}px`;
@@ -199,7 +262,6 @@
           clickSound.play();
           if (gameArea.contains(dot)) gameArea.removeChild(dot);
           event.stopPropagation();
-
           if (score >= goals[currentLevel - 1]) {
             endLevel(true);
           }
@@ -207,10 +269,11 @@
       });
 
       gameArea.appendChild(dot);
-
       setTimeout(() => {
-        if (gameArea.contains(dot)) gameArea.removeChild(dot);
-      }, 1000);
+        if (gameArea.contains(dot)) {
+          gameArea.removeChild(dot);
+        }
+      }, lifetime);
 
       dotsCreated++;
     }
@@ -220,7 +283,6 @@
       celebration.style.animation = 'none';
       void celebration.offsetWidth;
       celebration.style.animation = 'sparkleFade 3s forwards';
-
       setTimeout(() => {
         celebration.style.display = 'none';
       }, 3000);
@@ -255,15 +317,28 @@
       document.querySelectorAll('.dot').forEach(dot => dot.remove());
 
       dotsCreated = 0;
-      maxDots = goals[currentLevel - 1] + 2;
+      maxDots = goals[currentLevel - 1] + 5;
       gameInProgress = true;
 
+      const dotIntervalTime = 500;  // fixed 500ms
+      const dotLifetime = 1000;     // fixed 1000ms lifetime
+
       dotInterval = setInterval(() => {
-        createDot();
+        createDot(dotLifetime);
         if (dotsCreated >= maxDots) {
           clearInterval(dotInterval);
         }
-      }, 500);
+      }, dotIntervalTime);
+
+      const baseLevelDuration = maxDots * dotIntervalTime + 1500;
+
+      // gradually decrease level duration by 300ms per level, min 5000ms
+      let levelDuration = Math.max(baseLevelDuration - (currentLevel - 1) * 300, 5000);
+
+      // add extra 1 second for levels 9 and 10
+      if (currentLevel === 9 || currentLevel === 10) {
+        levelDuration += 1000;
+      }
 
       levelTimeout = setTimeout(() => {
         if (score >= goals[currentLevel - 1]) {
@@ -271,22 +346,20 @@
         } else {
           endLevel(false);
         }
-      }, timeLimit * 1000);
+      }, levelDuration);
     }
 
     function startGame() {
       gameStartSound.play();
       homePage.style.display = 'none';
       gameArea.style.display = 'flex';
+      menuButton.style.display = 'flex';
       currentLevel = 1;
-      timeLimit = 7;
       startLevel();
     }
 
     function nextLevel() {
       currentLevel++;
-      timeLimit += 2;
-
       if (currentLevel <= goals.length) {
         startLevel();
       } else {
@@ -299,9 +372,16 @@
       startLevel();
     }
 
+    function goToLevel1() {
+      currentLevel = 1;
+      startLevel();
+    }
+
     function resetGame() {
       homePage.style.display = 'flex';
       gameArea.style.display = 'none';
+      menuButton.style.display = 'none';
+      menuOptions.style.display = 'none';
       gameInProgress = false;
       celebration.style.display = 'none';
     }
@@ -309,6 +389,10 @@
     startButton.addEventListener('click', startGame);
     nextLevelButton.addEventListener('click', nextLevel);
     retryButton.addEventListener('click', retryLevel);
+
+    menuButton.addEventListener('click', () => {
+      menuOptions.style.display = menuOptions.style.display === 'flex' ? 'none' : 'flex';
+    });
   </script>
 </body>
 </html>
