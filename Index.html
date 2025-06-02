@@ -64,6 +64,16 @@
       background-color: #eee;
     }
 
+    #timer-display {
+      position: fixed;
+      top: 20px;
+      left: 150px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #333;
+      z-index: 2000;
+    }
+
     #home-page, #game-area {
       display: flex;
       flex-direction: column;
@@ -176,6 +186,8 @@
     </div>
   </div>
 
+  <div id="timer-display">Time: 0s</div>
+
   <div id="home-page">
     <h1>Welcome to Click the Dots!</h1>
     <button id="start-button">Start Game</button>
@@ -214,14 +226,15 @@
     const resumeGame = document.getElementById('resume-game');
     const restartLevel = document.getElementById('restart-level');
     const exitHome = document.getElementById('exit-home');
+    const timerDisplay = document.getElementById('timer-display');
 
     let score = 0;
     let currentLevel = 1;
-    let timeLimit = 7;
     const goals = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
     let gameInProgress = false;
     let dotInterval;
     let levelTimeout;
+    let countdownInterval;
     let dotsCreated = 0;
     let maxDots = 0;
 
@@ -269,6 +282,7 @@
       gameInProgress = false;
       clearInterval(dotInterval);
       clearTimeout(levelTimeout);
+      clearInterval(countdownInterval);
       document.querySelectorAll('.dot').forEach(dot => dot.remove());
 
       if (success) {
@@ -284,28 +298,47 @@
       }
     }
 
+    function startCountdown(seconds) {
+      clearInterval(countdownInterval);
+      timerDisplay.textContent = `Time: ${seconds}s`;
+
+      countdownInterval = setInterval(() => {
+        seconds--;
+        if (seconds >= 0) {
+          timerDisplay.textContent = `Time: ${seconds}s`;
+        }
+        if (seconds <= 0) {
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
+    }
+
     function startLevel() {
       score = 0;
       scoreBoard.textContent = `Score: ${score}`;
       levelBoard.textContent = `Level: ${currentLevel}`;
-      goalBoard.textContent = `Goal: ${goals[currentLevel - 1]} points`;
+      const goal = goals[currentLevel - 1];
+      goalBoard.textContent = `Goal: ${goal} points`;
       nextLevelButton.style.display = 'none';
       retryButton.style.display = 'none';
       celebration.style.display = 'none';
       document.querySelectorAll('.dot').forEach(dot => dot.remove());
 
       dotsCreated = 0;
-      maxDots = goals[currentLevel - 1] + 2;
+      maxDots = goal + 2;
       gameInProgress = true;
 
       dotInterval = setInterval(createDot, 500);
+      const levelTime = 500 * goal + 1000;
+      startCountdown(Math.floor(levelTime / 1000));
+
       levelTimeout = setTimeout(() => {
-        if (score >= goals[currentLevel - 1]) {
+        if (score >= goal) {
           endLevel(true);
         } else {
           endLevel(false);
         }
-      }, timeLimit * 1000);
+      }, levelTime);
     }
 
     function startGame() {
@@ -318,7 +351,6 @@
 
     function nextLevel() {
       currentLevel++;
-      timeLimit += 2;
       if (currentLevel <= goals.length) {
         startLevel();
       } else {
@@ -336,6 +368,7 @@
       gameArea.style.display = 'none';
       gameInProgress = false;
       celebration.style.display = 'none';
+      timerDisplay.textContent = 'Time: 0s';
     }
 
     function getUnlockedLevel() {
