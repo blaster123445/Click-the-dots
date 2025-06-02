@@ -64,16 +64,6 @@
       background-color: #eee;
     }
 
-    #timer-display {
-      position: fixed;
-      top: 20px;
-      left: 150px;
-      font-size: 20px;
-      font-weight: bold;
-      color: #333;
-      z-index: 2000;
-    }
-
     #home-page, #game-area {
       display: flex;
       flex-direction: column;
@@ -105,7 +95,6 @@
       position: absolute;
       width: 40px;
       height: 40px;
-      background-color: #FFF44F;
       border-radius: 12px;
       cursor: pointer;
     }
@@ -168,6 +157,20 @@
       box-shadow: 0 0 20px #ffd700;
     }
 
+    #timer-display {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      background: #f9f9f9;
+      border: 2px solid #ccc;
+      padding: 5px 15px;
+      border-radius: 8px;
+      z-index: 2000;
+    }
+
     @keyframes sparkleFade {
       0% { opacity: 0; }
       20% { opacity: 1; }
@@ -186,7 +189,7 @@
     </div>
   </div>
 
-  <div id="timer-display">Time: 0s</div>
+  <div id="timer-display">Time: 0</div>
 
   <div id="home-page">
     <h1>Welcome to Click the Dots!</h1>
@@ -234,7 +237,9 @@
     let gameInProgress = false;
     let dotInterval;
     let levelTimeout;
-    let countdownInterval;
+    let burstInterval;
+    let timeLeft = 0;
+    let timerInterval;
     let dotsCreated = 0;
     let maxDots = 0;
 
@@ -242,19 +247,23 @@
       if (!gameInProgress || dotsCreated >= maxDots) return;
       const dot = document.createElement('div');
       dot.classList.add('dot');
+      const isFake = Math.random() < 0.2;
+      dot.style.backgroundColor = isFake ? "#999" : "#FFF44F";
       dot.style.top = `${Math.random() * (gameArea.clientHeight - 40)}px`;
       dot.style.left = `${Math.random() * (gameArea.clientWidth - 40)}px`;
 
       dot.addEventListener('click', (e) => {
-        if (gameInProgress) {
+        e.stopPropagation();
+        if (isFake) {
+          score = Math.max(0, score - 1);
+        } else {
           score++;
-          scoreBoard.textContent = `Score: ${score}`;
           clickSound.play();
-          dot.remove();
-          e.stopPropagation();
-          if (score >= goals[currentLevel - 1]) {
-            endLevel(true);
-          }
+        }
+        scoreBoard.textContent = `Score: ${score}`;
+        dot.remove();
+        if (!isFake && score >= goals[currentLevel - 1]) {
+          endLevel(true);
         }
       });
 
@@ -262,7 +271,7 @@
 
       setTimeout(() => {
         if (gameArea.contains(dot)) gameArea.removeChild(dot);
-      }, 1000);
+      }, 800);
 
       dotsCreated++;
     }
@@ -282,7 +291,9 @@
       gameInProgress = false;
       clearInterval(dotInterval);
       clearTimeout(levelTimeout);
-      clearInterval(countdownInterval);
+      clearInterval(timerInterval);
+      clearInterval(burstInterval);
+      timerDisplay.textContent = "Time: 0";
       document.querySelectorAll('.dot').forEach(dot => dot.remove());
 
       if (success) {
@@ -298,47 +309,43 @@
       }
     }
 
-    function startCountdown(seconds) {
-      clearInterval(countdownInterval);
-      timerDisplay.textContent = `Time: ${seconds}s`;
-
-      countdownInterval = setInterval(() => {
-        seconds--;
-        if (seconds >= 0) {
-          timerDisplay.textContent = `Time: ${seconds}s`;
-        }
-        if (seconds <= 0) {
-          clearInterval(countdownInterval);
-        }
-      }, 1000);
-    }
-
     function startLevel() {
       score = 0;
       scoreBoard.textContent = `Score: ${score}`;
       levelBoard.textContent = `Level: ${currentLevel}`;
-      const goal = goals[currentLevel - 1];
-      goalBoard.textContent = `Goal: ${goal} points`;
+      goalBoard.textContent = `Goal: ${goals[currentLevel - 1]} points`;
       nextLevelButton.style.display = 'none';
       retryButton.style.display = 'none';
       celebration.style.display = 'none';
       document.querySelectorAll('.dot').forEach(dot => dot.remove());
 
       dotsCreated = 0;
-      maxDots = goal + 2;
+      maxDots = goals[currentLevel - 1] + 5;
       gameInProgress = true;
 
       dotInterval = setInterval(createDot, 500);
-      const levelTime = 500 * goal + 1000;
-      startCountdown(Math.floor(levelTime / 1000));
+      burstInterval = setInterval(() => {
+        if (gameInProgress) {
+          for (let i = 0; i < 2; i++) createDot();
+        }
+      }, 5000);
+
+      const timeInMs = goals[currentLevel - 1] * 500 + 1000;
+      timeLeft = Math.floor(timeInMs / 1000);
+      timerDisplay.textContent = `Time: ${timeLeft}`;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = `Time: ${timeLeft}`;
+        if (timeLeft <= 0) clearInterval(timerInterval);
+      }, 1000);
 
       levelTimeout = setTimeout(() => {
-        if (score >= goal) {
+        if (score >= goals[currentLevel - 1]) {
           endLevel(true);
         } else {
           endLevel(false);
         }
-      }, levelTime);
+      }, timeInMs);
     }
 
     function startGame() {
@@ -368,7 +375,6 @@
       gameArea.style.display = 'none';
       gameInProgress = false;
       celebration.style.display = 'none';
-      timerDisplay.textContent = 'Time: 0s';
     }
 
     function getUnlockedLevel() {
