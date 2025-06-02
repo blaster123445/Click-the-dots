@@ -7,15 +7,61 @@
   <style>
     body {
       font-family: Arial, sans-serif;
+      margin: 0;
+      height: 100vh;
+      background-color: white;
+      color: black;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
+    }
+
+    #menu-container {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 2000;
+    }
+
+    #menu-button {
+      background-color: #8B4513;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s, background-color 0.3s;
+    }
+
+    #menu-button:hover {
+      background-color: #A0522D;
+      transform: scale(1.05);
+    }
+
+    #menu-options {
+      display: none;
+      margin-top: 5px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
       overflow: hidden;
-      background-color: white;
-      color: black;
+    }
+
+    #menu-options button {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      background: white;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    #menu-options button:hover {
+      background-color: #eee;
     }
 
     #home-page, #game-area {
@@ -42,6 +88,7 @@
       display: none;
       border-radius: 10px;
       color: white;
+      margin-top: 60px;
     }
 
     .dot {
@@ -92,28 +139,6 @@
       transform: scale(1.05);
     }
 
-    #menu-button {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background-color: #4e2f1e;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 16px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 16px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      transition: background-color 0.3s, transform 0.2s;
-      z-index: 1001;
-    }
-
-    #menu-button:hover {
-      background-color: #6b3f28;
-      transform: scale(1.05);
-    }
-
     #celebration {
       position: absolute;
       top: 10px;
@@ -130,23 +155,7 @@
       font-weight: 800;
       text-align: center;
       animation: sparkleFade 3s forwards;
-      user-select: none;
       box-shadow: 0 0 20px #ffd700;
-      max-width: 90%;
-      white-space: nowrap;
-    }
-
-    #celebration::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.7) 50%, transparent 70%);
-      transform: rotate(25deg);
-      animation: shine 3s forwards;
-      pointer-events: none;
     }
 
     @keyframes sparkleFade {
@@ -155,23 +164,25 @@
       80% { opacity: 1; }
       100% { opacity: 0; }
     }
-
-    @keyframes shine {
-      0% { transform: translateX(-100%) rotate(25deg); }
-      100% { transform: translateX(100%) rotate(25deg); }
-    }
   </style>
 </head>
 <body>
+  <div id="menu-container">
+    <button id="menu-button">☰ Menu</button>
+    <div id="menu-options">
+      <button id="resume-game">Resume Game</button>
+      <button id="restart-level">Restart Level</button>
+      <button id="exit-home">Exit to Home</button>
+    </div>
+  </div>
+
   <div id="home-page">
     <h1>Welcome to Click the Dots!</h1>
     <button id="start-button">Start Game</button>
     <button id="choose-level-button">Choose Level</button>
-    <div id="level-selection" style="display: none; margin-top: 15px;"></div>
   </div>
 
   <div id="game-area">
-    <button id="menu-button">Menu</button>
     <div id="level-board">Level: 1</div>
     <div id="goal-board">Goal: 5 points</div>
     <div id="score-board">Score: 0</div>
@@ -186,6 +197,7 @@
 
   <script>
     const startButton = document.getElementById('start-button');
+    const chooseLevelButton = document.getElementById('choose-level-button');
     const nextLevelButton = document.getElementById('next-level-button');
     const retryButton = document.getElementById('retry-button');
     const homePage = document.getElementById('home-page');
@@ -198,8 +210,10 @@
     const gameStartSound = document.getElementById('game-start-sound');
     const celebration = document.getElementById('celebration');
     const menuButton = document.getElementById('menu-button');
-    const chooseLevelButton = document.getElementById('choose-level-button');
-    const levelSelection = document.getElementById('level-selection');
+    const menuOptions = document.getElementById('menu-options');
+    const resumeGame = document.getElementById('resume-game');
+    const restartLevel = document.getElementById('restart-level');
+    const exitHome = document.getElementById('exit-home');
 
     let score = 0;
     let currentLevel = 1;
@@ -207,11 +221,9 @@
     const goals = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
     let gameInProgress = false;
     let dotInterval;
+    let levelTimeout;
     let dotsCreated = 0;
     let maxDots = 0;
-    let levelTimeout;
-
-    let maxLevelReached = parseInt(localStorage.getItem('maxLevel')) || 1;
 
     function createDot() {
       if (!gameInProgress || dotsCreated >= maxDots) return;
@@ -220,13 +232,13 @@
       dot.style.top = `${Math.random() * (gameArea.clientHeight - 40)}px`;
       dot.style.left = `${Math.random() * (gameArea.clientWidth - 40)}px`;
 
-      dot.addEventListener('click', (event) => {
+      dot.addEventListener('click', (e) => {
         if (gameInProgress) {
           score++;
           scoreBoard.textContent = `Score: ${score}`;
           clickSound.play();
-          if (gameArea.contains(dot)) gameArea.removeChild(dot);
-          event.stopPropagation();
+          dot.remove();
+          e.stopPropagation();
           if (score >= goals[currentLevel - 1]) {
             endLevel(true);
           }
@@ -264,11 +276,7 @@
         showCelebration();
         nextLevelButton.style.display = 'block';
         retryButton.style.display = 'none';
-
-        if (currentLevel >= maxLevelReached) {
-          maxLevelReached = currentLevel + 1;
-          localStorage.setItem('maxLevel', maxLevelReached);
-        }
+        localStorage.setItem('unlockedLevel', Math.max(currentLevel + 1, getUnlockedLevel()));
       } else {
         alert(`You didn't reach the goal. Final Score: ${score}.`);
         retryButton.style.display = 'block';
@@ -290,11 +298,7 @@
       maxDots = goals[currentLevel - 1] + 2;
       gameInProgress = true;
 
-      dotInterval = setInterval(() => {
-        createDot();
-        if (dotsCreated >= maxDots) clearInterval(dotInterval);
-      }, 500);
-
+      dotInterval = setInterval(createDot, 500);
       levelTimeout = setTimeout(() => {
         if (score >= goals[currentLevel - 1]) {
           endLevel(true);
@@ -305,6 +309,7 @@
     }
 
     function startGame() {
+      currentLevel = getUnlockedLevel();
       gameStartSound.play();
       homePage.style.display = 'none';
       gameArea.style.display = 'flex';
@@ -314,11 +319,10 @@
     function nextLevel() {
       currentLevel++;
       timeLimit += 2;
-
       if (currentLevel <= goals.length) {
         startLevel();
       } else {
-        alert(`Congratulations! You've completed all levels!`);
+        alert("You've completed all levels!");
         resetGame();
       }
     }
@@ -328,45 +332,55 @@
     }
 
     function resetGame() {
-      gameInProgress = false;
-      gameArea.style.display = 'none';
       homePage.style.display = 'flex';
-      levelSelection.style.display = 'none';
+      gameArea.style.display = 'none';
+      gameInProgress = false;
+      celebration.style.display = 'none';
     }
 
-    function showLevelSelection() {
-      levelSelection.innerHTML = '';
-      for (let i = 1; i <= maxLevelReached; i++) {
-        const btn = document.createElement('button');
-        btn.textContent = `Level ${i}`;
-        btn.style.margin = '5px';
-        btn.style.padding = '10px';
-        btn.style.cursor = 'pointer';
-        btn.style.borderRadius = '5px';
-        btn.style.border = '1px solid #333';
+    function getUnlockedLevel() {
+      return parseInt(localStorage.getItem('unlockedLevel')) || 1;
+    }
 
-        btn.addEventListener('click', () => {
-          currentLevel = i;
-          timeLimit = 7 + (i - 1) * 2;
-          startGame();
-          levelSelection.style.display = 'none';
-        });
-
-        levelSelection.appendChild(btn);
+    function chooseLevel() {
+      const unlocked = getUnlockedLevel();
+      const level = parseInt(prompt(`Choose a level (1 - ${unlocked})`, unlocked));
+      if (!isNaN(level) && level >= 1 && level <= unlocked) {
+        currentLevel = level;
+        homePage.style.display = 'none';
+        gameArea.style.display = 'flex';
+        startLevel();
       }
-      levelSelection.style.display = 'block';
     }
 
-    startButton.addEventListener('click', () => {
-      currentLevel = 1;
-      timeLimit = 7;
-      startGame();
-    });
-
+    startButton.addEventListener('click', startGame);
+    chooseLevelButton.addEventListener('click', chooseLevel);
     nextLevelButton.addEventListener('click', nextLevel);
     retryButton.addEventListener('click', retryLevel);
-    menuButton.addEventListener('click', resetGame);
-    chooseLevelButton.addEventListener('click', showLevelSelection);
+
+    menuButton.addEventListener('click', () => {
+      menuOptions.style.display = menuOptions.style.display === 'block' ? 'none' : 'block';
+    });
+
+    resumeGame.addEventListener('click', () => {
+      menuOptions.style.display = 'none';
+    });
+
+    restartLevel.addEventListener('click', () => {
+      menuOptions.style.display = 'none';
+      startLevel();
+    });
+
+    exitHome.addEventListener('click', () => {
+      menuOptions.style.display = 'none';
+      resetGame();
+    });
+
+    window.addEventListener('click', e => {
+      if (!menuContainer.contains(e.target)) {
+        menuOptions.style.display = 'none';
+      }
+    });
   </script>
 </body>
 </html>
